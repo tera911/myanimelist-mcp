@@ -1,0 +1,28 @@
+import { NextRequest, NextResponse } from "next/server";
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "*",
+  };
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders() });
+}
+
+export async function GET(request: NextRequest) {
+  const proto = request.headers.get("x-forwarded-proto") || "http";
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
+  const origin = `${proto}://${host}`;
+
+  return NextResponse.json(
+    {
+      resource: `${origin}/api/mcp`,
+      authorization_servers: [origin],
+      bearer_methods_supported: ["header"],
+    },
+    { headers: corsHeaders() },
+  );
+}
