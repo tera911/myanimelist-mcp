@@ -51,6 +51,7 @@ export default function Home() {
   {
     mcpServers: {
       myanimelist: {
+        type: "http",
         url: mcpUrl,
       },
     },
