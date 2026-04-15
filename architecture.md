@@ -6,7 +6,7 @@
 MCPクライアント (Claude等)
   │ Streamable HTTP
   ▼
-app/api/[transport]/route.ts
+app/mcp/route.ts
   ├── withMcpAuth (optional) … Bearer token → authInfo.token
   └── createMcpHandler       … McpServer にツール登録
   │

@@ -47,7 +47,7 @@ npm run dev
 {
   "mcpServers": {
     "myanimelist": {
-      "url": "http://localhost:3000/api/mcp"
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
@@ -59,7 +59,7 @@ npm run dev
 npx @modelcontextprotocol/inspector
 ```
 
-URL に `http://localhost:3000/api/mcp` を入力して接続します。
+URL に `http://localhost:3000/mcp` を入力して接続します。
 
 ## ツール一覧
 

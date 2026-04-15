@@ -1,6 +1,6 @@
 export default function Home() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
-  const mcpUrl = `${baseUrl}/api/mcp`;
+  const mcpUrl = `${baseUrl}/mcp`;
 
   return (
     <div

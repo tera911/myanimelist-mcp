@@ -17,9 +17,6 @@ const mcpHandler = createMcpHandler(
       tools: {},
     },
   },
-  {
-    basePath: "/api",
-  },
 );
 
 const handler = withMcpAuth(
