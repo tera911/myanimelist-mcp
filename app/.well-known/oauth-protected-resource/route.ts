@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     {
-      resource: `${origin}/api/mcp`,
+      resource: `${origin}/mcp`,
       authorization_servers: [origin],
       bearer_methods_supported: ["header"],
     },
