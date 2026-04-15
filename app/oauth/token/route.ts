@@ -35,7 +35,6 @@ export async function POST(request: NextRequest) {
   const grantType = params.get("grant_type");
   const code = params.get("code");
   const codeVerifier = params.get("code_verifier");
-  const clientId = params.get("client_id");
   const redirectUri = params.get("redirect_uri");
 
   console.log("[OAuth/token] grant_type:", grantType);
@@ -56,7 +55,6 @@ export async function POST(request: NextRequest) {
     expires_in: number;
     code_challenge: string | null;
     code_challenge_method: string;
-    client_id: string | null;
     redirect_uri: string;
     created_at: number;
   };
@@ -88,11 +86,6 @@ export async function POST(request: NextRequest) {
   // RFC 6749 §4.1.3: token endpoint must verify redirect_uri.
   if (!redirectUri || redirectUri !== payload.redirect_uri) {
     return errorResponse("invalid_grant", "redirect_uri mismatch");
-  }
-
-  // Bind the code to the registered client that initiated the flow.
-  if (payload.client_id && clientId && clientId !== payload.client_id) {
-    return errorResponse("invalid_grant", "client_id mismatch");
   }
 
   return NextResponse.json(

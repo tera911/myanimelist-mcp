@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateCodeVerifier } from "@/lib/mal-oauth";
 import {
-  decrypt,
   encrypt,
   isRedirectUriAllowed,
   resolveTrustedOrigin,
 } from "@/lib/oauth-utils";
 import { MAL_AUTH_URL } from "@/lib/constants";
-
-type RegisteredClient = {
-  redirect_uris: string[];
-  client_name?: string;
-  created_at: number;
-};
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -42,19 +35,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let registeredClient: RegisteredClient;
-  try {
-    registeredClient = JSON.parse(decrypt(clientId));
-  } catch {
+  if (!isRedirectUriAllowed(clientRedirectUri)) {
     return NextResponse.json(
-      { error: "invalid_client", error_description: "Unknown client_id" },
-      { status: 400 },
-    );
-  }
-
-  if (!isRedirectUriAllowed(clientRedirectUri, registeredClient.redirect_uris)) {
-    return NextResponse.json(
-      { error: "invalid_request", error_description: "redirect_uri not registered for this client_id" },
+      { error: "invalid_request", error_description: "redirect_uri is not allowed" },
       { status: 400 },
     );
   }
@@ -74,7 +57,6 @@ export async function GET(request: NextRequest) {
     state: clientState,
     code_challenge: clientCodeChallenge,
     code_challenge_method: clientCodeChallengeMethod,
-    client_id: clientId,
     mal_code_verifier: malCodeVerifier,
     mal_redirect_uri: malRedirectUri,
   });

@@ -76,26 +76,34 @@ export function resolveTrustedOrigin(request: Request): string {
   return `${proto}://${host}`;
 }
 
-export function isRedirectUriAllowed(
-  candidate: string,
-  allowlist: string[],
-): boolean {
-  if (!allowlist.length) return false;
+// Static allowlist. Dynamic client registration still issues client_ids,
+// but the redirect_uri must match one of these rules. This keeps the
+// attack surface tiny and avoids trusting anything attacker-controlled.
+//
+//   - localhost / 127.0.0.1 on any port, any path, http or https
+//     (loopback is inherently safe per RFC 8252 §7.3: attacker cannot
+//     bind to the victim's localhost)
+//   - claude.ai / claude.com on https, any path
+//     (Anthropic-controlled domains)
+export function isRedirectUriAllowed(candidate: string): boolean {
+  let url: URL;
   try {
-    const c = new URL(candidate);
-    return allowlist.some((allowed) => {
-      try {
-        const a = new URL(allowed);
-        return (
-          a.protocol === c.protocol &&
-          a.host === c.host &&
-          a.pathname === c.pathname
-        );
-      } catch {
-        return false;
-      }
-    });
+    url = new URL(candidate);
   } catch {
     return false;
   }
+
+  if (url.protocol === "http:" || url.protocol === "https:") {
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+      return true;
+    }
+  }
+
+  if (url.protocol === "https:") {
+    if (url.hostname === "claude.ai" || url.hostname === "claude.com") {
+      return true;
+    }
+  }
+
+  return false;
 }

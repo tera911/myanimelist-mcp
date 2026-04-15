@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
     state: string | null;
     code_challenge: string | null;
     code_challenge_method: string;
-    client_id: string | null;
     mal_code_verifier: string;
     mal_redirect_uri: string;
   };
@@ -54,7 +53,6 @@ export async function GET(request: NextRequest) {
     expires_in: malTokens.expires_in,
     code_challenge: statePayload.code_challenge,
     code_challenge_method: statePayload.code_challenge_method,
-    client_id: statePayload.client_id,
     redirect_uri: statePayload.redirect_uri,
     created_at: Date.now(),
   });
