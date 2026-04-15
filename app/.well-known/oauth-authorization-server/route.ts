@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveTrustedOrigin } from "@/lib/oauth-utils";
 
 function corsHeaders() {
   return {
@@ -13,9 +14,7 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
-  const proto = request.headers.get("x-forwarded-proto") || "http";
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
-  const origin = `${proto}://${host}`;
+  const origin = resolveTrustedOrigin(request);
 
   return NextResponse.json(
     {
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code"],
       token_endpoint_auth_methods_supported: ["none"],
-      code_challenge_methods_supported: ["S256", "plain"],
+      code_challenge_methods_supported: ["S256"],
       scopes_supported: [],
     },
     { headers: corsHeaders() },

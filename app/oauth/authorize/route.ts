@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateCodeVerifier } from "@/lib/mal-oauth";
-import { encrypt } from "@/lib/oauth-utils";
+import {
+  decrypt,
+  encrypt,
+  isRedirectUriAllowed,
+  resolveTrustedOrigin,
+} from "@/lib/oauth-utils";
 import { MAL_AUTH_URL } from "@/lib/constants";
+
+type RegisteredClient = {
+  redirect_uris: string[];
+  client_name?: string;
+  created_at: number;
+};
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-
-  console.log("[OAuth/authorize] Params:", Object.fromEntries(params.entries()));
 
   const clientRedirectUri = params.get("redirect_uri");
   const clientState = params.get("state");
@@ -15,18 +24,47 @@ export async function GET(request: NextRequest) {
   const clientId = params.get("client_id");
 
   if (!clientRedirectUri) {
-    console.log("[OAuth/authorize] ERROR: missing redirect_uri");
-    return NextResponse.json({ error: "redirect_uri is required" }, { status: 400 });
+    return NextResponse.json({ error: "invalid_request", error_description: "redirect_uri is required" }, { status: 400 });
+  }
+  if (!clientId) {
+    return NextResponse.json({ error: "invalid_request", error_description: "client_id is required" }, { status: 400 });
+  }
+  if (!clientCodeChallenge) {
+    return NextResponse.json(
+      { error: "invalid_request", error_description: "code_challenge is required (PKCE)" },
+      { status: 400 },
+    );
+  }
+  if (clientCodeChallengeMethod !== "S256") {
+    return NextResponse.json(
+      { error: "invalid_request", error_description: "Only S256 is supported for code_challenge_method" },
+      { status: 400 },
+    );
+  }
+
+  let registeredClient: RegisteredClient;
+  try {
+    registeredClient = JSON.parse(decrypt(clientId));
+  } catch {
+    return NextResponse.json(
+      { error: "invalid_client", error_description: "Unknown client_id" },
+      { status: 400 },
+    );
+  }
+
+  if (!isRedirectUriAllowed(clientRedirectUri, registeredClient.redirect_uris)) {
+    return NextResponse.json(
+      { error: "invalid_request", error_description: "redirect_uri not registered for this client_id" },
+      { status: 400 },
+    );
   }
 
   const malClientId = process.env.MAL_CLIENT_ID;
   if (!malClientId) {
-    return NextResponse.json({ error: "MAL_CLIENT_ID not configured" }, { status: 500 });
+    return NextResponse.json({ error: "server_error", error_description: "MAL_CLIENT_ID not configured" }, { status: 500 });
   }
 
-  const proto = request.headers.get("x-forwarded-proto") || "http";
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
-  const origin = `${proto}://${host}`;
+  const origin = resolveTrustedOrigin(request);
   const malRedirectUri = `${origin}/oauth/callback`;
 
   const malCodeVerifier = generateCodeVerifier();
@@ -50,6 +88,6 @@ export async function GET(request: NextRequest) {
   malAuthUrl.searchParams.set("code_challenge_method", "plain");
   malAuthUrl.searchParams.set("state", encryptedState);
 
-  console.log("[OAuth/authorize] Redirecting to MAL, client_redirect_uri:", clientRedirectUri);
+  console.log("[OAuth/authorize] redirecting to MAL");
   return NextResponse.redirect(malAuthUrl.toString());
 }

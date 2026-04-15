@@ -7,8 +7,13 @@ function deriveKey(secret: string): Buffer {
 }
 
 function getSecret(): string {
-  const secret = process.env.MAL_CLIENT_SECRET || process.env.MAL_CLIENT_ID;
-  if (!secret) throw new Error("MAL_CLIENT_SECRET or MAL_CLIENT_ID is required");
+  const secret = process.env.MAL_CLIENT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "MAL_CLIENT_SECRET is required for encryption key derivation. " +
+        "MAL_CLIENT_ID must NOT be used as a fallback because it is public.",
+    );
+  }
   return secret;
 }
 
@@ -54,4 +59,43 @@ export function verifyCodeChallenge(
 
 export function generateRandomString(length: number = 32): string {
   return crypto.randomBytes(length).toString("base64url");
+}
+
+// Resolve a trustworthy origin. Prefer explicit env config over
+// proxy headers, which are forgeable when a request bypasses the
+// upstream (e.g. direct hit to the origin server).
+export function resolveTrustedOrigin(request: Request): string {
+  const fromEnv =
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+
+  const headers = request.headers;
+  const host = headers.get("host") || "localhost:3000";
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  return `${proto}://${host}`;
+}
+
+export function isRedirectUriAllowed(
+  candidate: string,
+  allowlist: string[],
+): boolean {
+  if (!allowlist.length) return false;
+  try {
+    const c = new URL(candidate);
+    return allowlist.some((allowed) => {
+      try {
+        const a = new URL(allowed);
+        return (
+          a.protocol === c.protocol &&
+          a.host === c.host &&
+          a.pathname === c.pathname
+        );
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return false;
+  }
 }

@@ -13,21 +13,23 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }
 
+function errorResponse(error: string, description: string, status = 400) {
+  return NextResponse.json(
+    { error, error_description: description },
+    { status, headers: corsHeaders() },
+  );
+}
+
 export async function POST(request: NextRequest) {
   const contentType = request.headers.get("content-type") || "";
-  console.log("[OAuth/token] Content-Type:", contentType);
-
   let params: URLSearchParams;
 
-  // Support both form-urlencoded and JSON body
   if (contentType.includes("application/json")) {
     const json = await request.json();
-    console.log("[OAuth/token] JSON body keys:", Object.keys(json));
     params = new URLSearchParams(json);
   } else {
     const body = await request.text();
     params = new URLSearchParams(body);
-    console.log("[OAuth/token] Form body keys:", Array.from(params.keys()));
   }
 
   const grantType = params.get("grant_type");
@@ -36,22 +38,16 @@ export async function POST(request: NextRequest) {
   const clientId = params.get("client_id");
   const redirectUri = params.get("redirect_uri");
 
-  console.log("[OAuth/token] grant_type:", grantType, "code length:", code?.length, "code_verifier:", codeVerifier ? "present" : "absent", "client_id:", clientId, "redirect_uri:", redirectUri);
+  console.log("[OAuth/token] grant_type:", grantType);
 
   if (grantType !== "authorization_code") {
-    console.log("[OAuth/token] ERROR: unsupported grant_type:", grantType);
-    return NextResponse.json(
-      { error: "unsupported_grant_type" },
-      { status: 400, headers: corsHeaders() },
-    );
+    return errorResponse("unsupported_grant_type", "Only authorization_code is supported");
   }
-
   if (!code) {
-    console.log("[OAuth/token] ERROR: missing code");
-    return NextResponse.json(
-      { error: "invalid_request", error_description: "code is required" },
-      { status: 400, headers: corsHeaders() },
-    );
+    return errorResponse("invalid_request", "code is required");
+  }
+  if (!codeVerifier) {
+    return errorResponse("invalid_request", "code_verifier is required (PKCE)");
   }
 
   let payload: {
@@ -60,45 +56,45 @@ export async function POST(request: NextRequest) {
     expires_in: number;
     code_challenge: string | null;
     code_challenge_method: string;
+    client_id: string | null;
+    redirect_uri: string;
     created_at: number;
   };
 
   try {
     payload = JSON.parse(decrypt(code));
-    console.log("[OAuth/token] Code decrypted successfully");
-  } catch (e) {
-    console.log("[OAuth/token] ERROR: Failed to decrypt code:", e);
-    return NextResponse.json(
-      { error: "invalid_grant", error_description: "Invalid or expired authorization code" },
-      { status: 400, headers: corsHeaders() },
-    );
+  } catch {
+    return errorResponse("invalid_grant", "Invalid or expired authorization code");
   }
 
   if (Date.now() - payload.created_at > 5 * 60 * 1000) {
-    console.log("[OAuth/token] ERROR: Code expired");
-    return NextResponse.json(
-      { error: "invalid_grant", error_description: "Authorization code has expired" },
-      { status: 400, headers: corsHeaders() },
-    );
+    return errorResponse("invalid_grant", "Authorization code has expired");
   }
 
-  if (payload.code_challenge && codeVerifier) {
-    const valid = verifyCodeChallenge(
-      codeVerifier,
-      payload.code_challenge,
-      payload.code_challenge_method || "S256",
-    );
-    if (!valid) {
-      console.log("[OAuth/token] ERROR: PKCE verification failed");
-      return NextResponse.json(
-        { error: "invalid_grant", error_description: "PKCE verification failed" },
-        { status: 400, headers: corsHeaders() },
-      );
-    }
-    console.log("[OAuth/token] PKCE verified OK");
+  if (!payload.code_challenge) {
+    // Authorization flow was initiated without PKCE — reject to prevent bearer-token replay.
+    return errorResponse("invalid_grant", "Authorization code was issued without PKCE");
   }
 
-  console.log("[OAuth/token] SUCCESS: Returning tokens");
+  const method = payload.code_challenge_method || "S256";
+  if (method !== "S256") {
+    return errorResponse("invalid_grant", "Unsupported code_challenge_method");
+  }
+
+  if (!verifyCodeChallenge(codeVerifier, payload.code_challenge, method)) {
+    return errorResponse("invalid_grant", "PKCE verification failed");
+  }
+
+  // RFC 6749 §4.1.3: token endpoint must verify redirect_uri.
+  if (!redirectUri || redirectUri !== payload.redirect_uri) {
+    return errorResponse("invalid_grant", "redirect_uri mismatch");
+  }
+
+  // Bind the code to the registered client that initiated the flow.
+  if (payload.client_id && clientId && clientId !== payload.client_id) {
+    return errorResponse("invalid_grant", "client_id mismatch");
+  }
+
   return NextResponse.json(
     {
       access_token: payload.access_token,

@@ -128,23 +128,21 @@ export default function Home() {
           Authentication
         </h2>
         <p style={{ fontSize: 14, color: "#a0a0a0" }}>
-          Tools marked with * require a MAL access token. To obtain one:
+          Tools marked with * require a MAL access token. Your MCP client
+          performs the OAuth2 flow automatically when connecting to{" "}
+          <code>/mcp</code>. The server acts as an OAuth proxy for MyAnimeList
+          and issues short-lived PKCE-bound authorization codes.
         </p>
         <ol style={{ fontSize: 14, lineHeight: 1.8 }}>
+          <li>Add this server to your MCP client configuration.</li>
           <li>
-            Visit{" "}
-            <a
-              href="/auth/mal/authorize"
-              style={{ color: "#2e86de" }}
-            >
-              /auth/mal/authorize
-            </a>{" "}
-            to start the OAuth flow
+            Your client auto-registers at <code>/oauth/register</code> and
+            starts the authorization flow at <code>/oauth/authorize</code>.
           </li>
-          <li>Authorize the application on MyAnimeList</li>
+          <li>Authorize the application on MyAnimeList.</li>
           <li>
-            Use the returned access token as the{" "}
-            <code>mal_access_token</code> parameter
+            Your MCP client stores the access token and attaches it to every
+            tool call.
           </li>
         </ol>
       </div>

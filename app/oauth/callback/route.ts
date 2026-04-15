@@ -7,10 +7,7 @@ export async function GET(request: NextRequest) {
   const malCode = params.get("code");
   const encryptedState = params.get("state");
 
-  console.log("[OAuth/callback] Received callback, code length:", malCode?.length, "state length:", encryptedState?.length);
-
   if (!malCode || !encryptedState) {
-    console.log("[OAuth/callback] ERROR: Missing code or state");
     return NextResponse.json({ error: "Missing code or state" }, { status: 400 });
   }
 
@@ -26,9 +23,7 @@ export async function GET(request: NextRequest) {
 
   try {
     statePayload = JSON.parse(decrypt(encryptedState));
-    console.log("[OAuth/callback] State decrypted, client redirect_uri:", statePayload.redirect_uri);
-  } catch (e) {
-    console.log("[OAuth/callback] ERROR: Failed to decrypt state:", e);
+  } catch {
     return NextResponse.json({ error: "Invalid state" }, { status: 400 });
   }
 
@@ -44,12 +39,11 @@ export async function GET(request: NextRequest) {
       codeVerifier: statePayload.mal_code_verifier,
       redirectUri: statePayload.mal_redirect_uri,
     });
-    console.log("[OAuth/callback] MAL token exchange success, access_token length:", malTokens.access_token.length);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.log("[OAuth/callback] ERROR: MAL token exchange failed:", message);
+    console.error("[OAuth/callback] MAL token exchange failed:", message);
     return NextResponse.json(
-      { error: "MAL token exchange failed", details: message },
+      { error: "MAL token exchange failed" },
       { status: 500 },
     );
   }
@@ -60,6 +54,8 @@ export async function GET(request: NextRequest) {
     expires_in: malTokens.expires_in,
     code_challenge: statePayload.code_challenge,
     code_challenge_method: statePayload.code_challenge_method,
+    client_id: statePayload.client_id,
+    redirect_uri: statePayload.redirect_uri,
     created_at: Date.now(),
   });
   const authCode = encrypt(authCodePayload);
@@ -70,6 +66,5 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("state", statePayload.state);
   }
 
-  console.log("[OAuth/callback] Redirecting to client, auth_code length:", authCode.length, "total URL length:", redirectUrl.toString().length);
   return NextResponse.redirect(redirectUrl.toString());
 }
