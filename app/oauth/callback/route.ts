@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForToken } from "@/lib/mal-oauth";
-import { decrypt, encrypt } from "@/lib/oauth-utils";
+import { decrypt, encrypt, wrapMalToken } from "@/lib/oauth-utils";
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -47,9 +47,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const wrappedToken = wrapMalToken({
+    accessToken: malTokens.access_token,
+    refreshToken: malTokens.refresh_token,
+    expiresIn: malTokens.expires_in,
+  });
+
   const authCodePayload = JSON.stringify({
-    access_token: malTokens.access_token,
-    refresh_token: malTokens.refresh_token,
+    wrapped_token: wrappedToken,
     expires_in: malTokens.expires_in,
     code_challenge: statePayload.code_challenge,
     code_challenge_method: statePayload.code_challenge_method,

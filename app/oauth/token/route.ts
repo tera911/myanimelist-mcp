@@ -50,8 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   let payload: {
-    access_token: string;
-    refresh_token: string;
+    wrapped_token: string;
     expires_in: number;
     code_challenge: string | null;
     code_challenge_method: string;
@@ -90,10 +89,9 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json(
     {
-      access_token: payload.access_token,
+      access_token: payload.wrapped_token,
       token_type: "Bearer",
       expires_in: payload.expires_in,
-      refresh_token: payload.refresh_token,
     },
     { headers: corsHeaders() },
   );

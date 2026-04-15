@@ -61,6 +61,52 @@ export function generateRandomString(length: number = 32): string {
   return crypto.randomBytes(length).toString("base64url");
 }
 
+// Wrapped bearer format. The raw MAL access_token is never exposed to
+// the MCP client — we hand out encrypted blobs instead so that the /mcp
+// endpoint can definitively reject arbitrary bearer strings without
+// making a network call to MAL.
+export type WrappedMalToken = {
+  mal_access_token: string;
+  mal_refresh_token: string;
+  expires_at: number;
+  issued_at: number;
+};
+
+export function wrapMalToken(params: {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}): string {
+  const now = Date.now();
+  const payload: WrappedMalToken = {
+    mal_access_token: params.accessToken,
+    mal_refresh_token: params.refreshToken,
+    expires_at: now + params.expiresIn * 1000,
+    issued_at: now,
+  };
+  return encrypt(JSON.stringify(payload));
+}
+
+export function unwrapMalToken(wrapped: string): WrappedMalToken | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(decrypt(wrapped));
+  } catch {
+    return null;
+  }
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    typeof (parsed as WrappedMalToken).mal_access_token !== "string" ||
+    typeof (parsed as WrappedMalToken).expires_at !== "number"
+  ) {
+    return null;
+  }
+  const token = parsed as WrappedMalToken;
+  if (Date.now() >= token.expires_at) return null;
+  return token;
+}
+
 // Resolve a trustworthy origin. Prefer explicit env config over
 // proxy headers, which are forgeable when a request bypasses the
 // upstream (e.g. direct hit to the origin server).
