@@ -22,8 +22,6 @@ const mcpHandler = createMcpHandler(
   },
 );
 
-// Wrap with optional auth — unauthenticated requests still work for public tools.
-// When authenticated, the bearer token (MAL access token) is available via extra.authInfo.
 const handler = withMcpAuth(
   mcpHandler,
   async (_req, bearerToken) => {
@@ -34,7 +32,7 @@ const handler = withMcpAuth(
       scopes: [],
     };
   },
-  { required: false },
+  { required: true },
 );
 
 export { handler as GET, handler as POST, handler as DELETE };
